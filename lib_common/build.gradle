@@ -1,0 +1,9 @@
+apply plugin: 'com.android.library'
+apply from:'../dependencies.gradle'
+
+dependencies {
+
+    api 'com.github.CymChad:BaseRecyclerViewAdapterHelper:3.0.4'
+    api 'com.blankj:utilcodex:1.29.0'
+    api 'com.orhanobut:logger:2.2.0'
+}
