@@ -13,5 +13,8 @@ class Constants {
         const val FACE_COMPARED_THRESHOLD = "face_compared_threshold"
         //人脸识别距离
         const val FACERECOGNITIONDISTANCE = "facerecognitiondistance"
+
+        //人脸未匹配
+        const val CODE_FACE_UNMATCHED = 19
     }
 }

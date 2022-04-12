@@ -16,16 +16,11 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.ViewGroup;
-import com.ancda.registration.MyApplication;
-import com.ancda.registration.event.UpdateCameraInfoEvent;
-import com.ancda.registration.utils.DBUtils;
-import com.ancda.registration.utils.SharedPreferencesUtils;
 import com.blankj.utilcode.util.SPUtils;
-import com.hugbio.log.AncdaLog;
 import com.orhanobut.logger.Logger;
+import com.palmbaby.lib_common.config.AppConfig;
 import com.palmbaby.lib_stfacedetect.constants.Constants;
 import com.palmbaby.lib_stfacedetect.event.UpdateCameraInfoEvent;
-import com.umeng.analytics.MobclickAgent;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
@@ -380,8 +375,7 @@ public class CameraHelp implements Camera.ErrorCallback {
                         SPUtils.getInstance().put(Constants.CAMERA_RESTART_COUNT, cameraRestartCount);
                         EventBus.getDefault().post(new UpdateCameraInfoEvent(false));
                         //重启设备
-                        // TODO: 2022/4/9
-                        SmdtManager smdt = SmdtManager.create(MainApp);
+                        SmdtManager smdt = SmdtManager.create(AppConfig.INSTANCE.getApplication());
                         smdt.smdtReboot("reboot");
                     }
                     break;

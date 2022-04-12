@@ -61,7 +61,7 @@ class DeviceController : IController, OnOpenSerialPortListener, OnSerialPortData
         Log.i(TAG, "收到回复：$result")
 
         // TODO: test
-        /*val list = mutableListOf<String>()
+        val list = mutableListOf<String>()
         dealDataReceived(list, result)
         for ((index, value) in list.withIndex()) {
             result = list[index]
@@ -70,6 +70,7 @@ class DeviceController : IController, OnOpenSerialPortListener, OnSerialPortData
             if (result.startsWith("AF")) {
                 try {
                     //AF 03 02 1F 0C BD
+                    //AF 03 06 20 03 89
                     val subString = result.substring(0, 6)
                     val len = ByteUtil.hexStr2decimal(result.substring(2, 4))
                     val data = ByteArray(len.toInt())
@@ -134,7 +135,7 @@ class DeviceController : IController, OnOpenSerialPortListener, OnSerialPortData
             } else {
                 Log.e(TAG, "ddcc收到错误数据")
             }
-        }*/
+        }
     }
 
     private fun dealDataReceived(list: MutableList<String>, result: String) : MutableList<String> {

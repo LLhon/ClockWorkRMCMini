@@ -8,5 +8,6 @@ class Constants {
 
     companion object {
         const val PATH_SERIALPORT: String = "/serialport/MainActivity"
+        const val PATH_FACEDETECT: String = "/facedetect/MainActivity"
     }
 }

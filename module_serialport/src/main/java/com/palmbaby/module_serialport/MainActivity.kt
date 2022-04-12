@@ -5,16 +5,17 @@ import android.os.Bundle
 import android.util.Log
 import androidx.recyclerview.widget.RecyclerView
 import com.alibaba.android.arouter.facade.annotation.Route
+import com.google.android.material.button.MaterialButton
 import com.palmbaby.lib_common.support.Constants
 import com.palmbaby.lib_serialport.OnSerialPortListener
 import com.palmbaby.lib_serialport.SdkHelper
 import com.palmbaby.module_serialport.adapter.MsgAdapter
-import kotlinx.android.synthetic.main.activity_serialport.*
 
 @Route(path = Constants.PATH_SERIALPORT)
 class MainActivity : AppCompatActivity(), OnSerialPortListener {
 
     private val TAG = "MainActivity"
+    private lateinit var mBtnOpen: MaterialButton
     private lateinit var mRecyclerView: RecyclerView
     private lateinit var mAdapter: MsgAdapter
     private val mMsgList = mutableListOf<String>()
@@ -33,15 +34,18 @@ class MainActivity : AppCompatActivity(), OnSerialPortListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_serialport)
 
+        mBtnOpen = findViewById(R.id.btnOpen)
+        mRecyclerView = findViewById(R.id.rv)
+
         SdkHelper.init()
 
-        btnOpen.setOnClickListener {
+        mBtnOpen.setOnClickListener {
             SdkHelper.openSerialPort(this)
 //            SdkHelper.getDeviceController().heartBeat()
         }
 
         mAdapter = MsgAdapter(R.layout.item_msg, mMsgList)
-        rv.adapter = mAdapter
+        mRecyclerView.adapter = mAdapter
     }
 
     override fun onOpenSuccess() {

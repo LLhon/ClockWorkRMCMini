@@ -4,21 +4,25 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.Camera;
+import android.os.Environment;
 import android.os.IBinder;
 import android.text.TextUtils;
+import android.util.Log;
 import android.util.SparseLongArray;
 import androidx.annotation.Nullable;
-import com.ancda.registration.MyApplication;
-import com.ancda.registration.MyEventCode;
-import com.ancda.registration.event.ActivityOnPauseEvent;
-import com.ancda.registration.model.FaceData;
-import com.ancda.registration.model.FaceWidthTooSmallEvent;
-import com.ancda.registration.model.UpdateFaceInitStatusEvent;
-import com.ancda.registration.utils.DBUtils;
-import com.ancda.registration.utils.FileUtils;
-import com.hugbio.log.AncdaLog;
+import androidx.lifecycle.LiveData;
+import com.blankj.utilcode.util.FileUtils;
+import com.orhanobut.logger.Logger;
+import com.palmbaby.lib_common.config.AppConfig;
+import com.palmbaby.lib_stfacedetect.constants.Constants;
+import com.palmbaby.lib_stfacedetect.db.FaceDB;
+import com.palmbaby.lib_stfacedetect.db.FaceData;
+import com.palmbaby.lib_stfacedetect.event.ActivityOnPauseEvent;
+import com.palmbaby.lib_stfacedetect.event.FaceWidthTooSmallEvent;
+import com.palmbaby.lib_stfacedetect.event.UpdateFaceInitStatusEvent;
 import com.palmbaby.lib_stfacedetect.model.ScanFaceInfo;
 import com.smdt.facesdk.mipsFaceInfoTrack;
+import java.io.File;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -106,7 +110,8 @@ public class MipsIDFaceProService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        libPath = FileUtils.getExternalDir(this) + "mipsLic/mipsAi.lic";
+//        libPath = FileUtils.getExternalDir(this) + "mipsLic/mipsAi.lic";
+        libPath = FileUtils.getDirName(Environment.getExternalStorageDirectory().getPath()) + "/mipsLic/mipsAi.lic";
         //首次启动服务时，尝试开启副摄像头，再决定初始化sdk方式
         openCameraIR();
 
@@ -120,10 +125,12 @@ public class MipsIDFaceProService extends Service {
             //初始化sdk，并且启动人脸识别线程
             int ret = startDetect(MipsIDFaceProService.this, "", cameraHelpIR != null);  //使用批量授权，不需要传单独传授权文件（libPath)
             if (ret < 0) {
-                MyApplication.faceSDKInitStatus = 1;
-                DBUtils.saveLog("初始化人脸识别SDK失败：" + ret);
+                AppConfig.INSTANCE.setFaceSDKInitStatus(1);
+//                DBUtils.saveLog("初始化人脸识别SDK失败：" + ret);
+                Logger.e("初始化人脸识别SDK失败：" + ret);
             } else {
-                MyApplication.faceSDKInitStatus = 0;
+                Log.e(TAG, "初始化人脸识别SDK成功！");
+                AppConfig.INSTANCE.setFaceSDKInitStatus(0);
             }
             EventBus.getDefault().post(new UpdateFaceInitStatusEvent());
 
@@ -199,7 +206,7 @@ public class MipsIDFaceProService extends Service {
             if (data == null) {
                 return; // 切分辨率的过程中可能这个地方的data为空
             }
-            if (mTrackThread == null || !MyApplication.isFaceService) { //人脸识别库没有初始化,或者人脸识别服务器关闭
+            if (mTrackThread == null || !AppConfig.INSTANCE.isFaceService()) { //人脸识别库没有初始化,或者人脸识别服务器关闭
                 if (!mIsTracking && lastCheckStatus != -3) {
                     noticeFaceCallback(null);
                     resetCheckResult();
@@ -238,7 +245,7 @@ public class MipsIDFaceProService extends Service {
             if (data == null) {
                 return; // 切分辨率的过程中可能这个地方的data为空
             }
-            if (mTrackThread == null || !MyApplication.isFaceService) { //人脸识别库没有初始化
+            if (mTrackThread == null || !AppConfig.INSTANCE.isFaceService()) { //人脸识别库没有初始化
                 return;
             }
 
@@ -389,14 +396,13 @@ public class MipsIDFaceProService extends Service {
     private boolean swipeByFaceId(int faceId) {
         //检测到特征库中的人脸，特征库人脸id为FaceIdxDB，这里要开始处理刷卡
         try {
-            List<FaceData> faceDataList = DBUtils.findAllDataByWhere(FaceData.class, "faceId=" + faceId);
-            AncdaLog.dToFile("匹配到的人脸ID:" + faceId);
-            if (faceDataList != null && faceDataList.size() > 0) {
-                FaceData faceData = faceDataList.get(0);
-                String studentId = faceData.getStudentId();
-                String teacherId = faceData.getTeacherId();
+            Log.d(TAG, "匹配到的人脸ID:" + faceId);
+            LiveData<FaceData> faceDataLiveData = FaceDB.Companion.get(AppConfig.INSTANCE.getApplication()).getFaceDao().queryFace(faceId);
+            if (faceDataLiveData.getValue() != null) {
+                String studentId = faceDataLiveData.getValue().getStudentId();
+                String teacherId = faceDataLiveData.getValue().getTeacherId();
                 if (!TextUtils.isEmpty(studentId) || !TextUtils.isEmpty(teacherId)) {
-                    return sendSwipe(faceData.getFaceId(), studentId, teacherId);
+                    return sendSwipe(faceDataLiveData.getValue().getFaceId(), studentId, teacherId);
                 }
             }
         } catch (Exception e) {
@@ -506,12 +512,14 @@ public class MipsIDFaceProService extends Service {
 
                                 DetectedResult result = null;
                                 if (flgFaceChange != -1) {  //-1：检测失败   0：人脸信息较上一张无变化  1：人脸信息较上一张有变化
+                                    Log.d(TAG, "人脸检测结果：" + flgFaceChange);
                                     int mcntCurFace = mipsIDFaceManage.mipsGetFaceCnt(); //检测到人脸的个数
                                     mFaceInfoDetected = mipsIDFaceManage.mipsGetFaceInfoDetected(); //获取人脸识别返回的人脸信息，可能多个人脸
                                     if (flgFaceChange == 1) {
                                         noticeFaceCallback(mFaceInfoDetected);
                                     }
                                     if (mcntCurFace > 0) {
+                                        Log.d(TAG, "检测到人脸数量：" + mcntCurFace);
                                         timeBak = 0;
                                         isClearFaceFrame = true;
                                         result = handleFaceInfo(mFaceInfoDetected, mcntCurFace, flgFaceChange);
@@ -521,9 +529,9 @@ public class MipsIDFaceProService extends Service {
                                         }
                                         if (lastCheckStatus == -2) { //-1:匹配中  -2:人脸未匹配
                                             if (lastUnmatchedTime > 0 && System.currentTimeMillis() - lastUnmatchedTime >= timeInterval) {
-                                                if (!MyApplication.isUpdateFaceDataStatus()) {
+                                                if (!AppConfig.INSTANCE.isUpdateFaceData()) {
                                                     Intent intent = new Intent("com.ancda.registration.notice");
-                                                    intent.putExtra("type", MyEventCode.FACE_UNMATCHED);
+                                                    intent.putExtra("type", Constants.CODE_FACE_UNMATCHED);
                                                     sendBroadcast(intent);
 
                                                     //复位人脸检测
@@ -556,6 +564,7 @@ public class MipsIDFaceProService extends Service {
 
                                 } else {
                                     //DBUtils.saveLog("识别检测失败");
+                                    Log.e(TAG, "人脸检测结果：失败");
                                     resetCheckStatus();
                                 }
                             } finally {
@@ -578,7 +587,8 @@ public class MipsIDFaceProService extends Service {
                         mIsTracking = false;
                     }
                 }
-                DBUtils.saveLog("Face TrackThread exit");
+//                DBUtils.saveLog("Face TrackThread exit");
+                Logger.d("Face TrackThread exit");
             }
         };
         mTrackThread.start();
@@ -642,7 +652,7 @@ public class MipsIDFaceProService extends Service {
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void clearTimeCallback(ActivityOnPauseEvent event) {
         timeBak = 0;
-        AncdaLog.dToFile("Activty不可见,时间清0");
+        Logger.d("Activty不可见,时间清0");
     }
 
     @Override
